@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/courseProgress/{courseId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function hasValidProgress() {
+        return request.resource.data.keys().hasOnly([
+                 'enrolled',
+                 'completedLessonIds',
+                 'bestQuizScore',
+                 'updatedAt'
+               ])
+            && request.resource.data.enrolled is bool
+            && request.resource.data.completedLessonIds is list
+            && request.resource.data.completedLessonIds.size() <= 100
+            && request.resource.data.bestQuizScore is int
+            && request.resource.data.bestQuizScore >= 0
+            && request.resource.data.bestQuizScore <= 100;
+      }
+
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner() && hasValidProgress();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
